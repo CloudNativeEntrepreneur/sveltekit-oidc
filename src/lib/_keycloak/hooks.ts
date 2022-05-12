@@ -31,8 +31,8 @@ export const getUserSession = async (
   const { request } = event;
   let locals: Locals = event.locals as Locals;
 
-  log('Get user session - locals');
-  log(locals)
+  log("Get user session - locals");
+  log(locals);
 
   try {
     if (locals?.access_token) {
@@ -106,7 +106,7 @@ export const getUserSession = async (
         // log('userinfo fetched');
         locals.userid = data.sub;
         locals.user = { ...data };
-        
+
         return {
           user: {
             // only include properties needed client-side —
@@ -136,7 +136,7 @@ export const getUserSession = async (
               clientId,
               clientSecret
             );
-            log('new token data:')
+            log("new token data:");
             log(newTokenData);
             if (newTokenData?.error) {
               throw {
