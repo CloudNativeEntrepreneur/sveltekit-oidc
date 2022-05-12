@@ -7,6 +7,9 @@ import type {
   GetUserSessionFn,
 } from "../types";
 import { isTokenExpired } from "./jwt";
+import debug from "debug";
+
+const log = debug("sveltekit-oidc:auth-api");
 
 export function initiateFrontChannelOIDCAuth(
   browser: boolean,
@@ -77,9 +80,9 @@ export async function initiateBackChannelOIDCAuth(
     return data;
   } else {
     const data: OIDCResponse = await res.json();
-    console.log("response not ok");
-    console.log(data);
-    console.log(formBody.join("&"));
+    log("response not ok");
+    log(data);
+    log(formBody.join("&"));
     return data;
   }
 }
@@ -96,6 +99,8 @@ export async function initiateBackChannelOIDCLogout(
     "client_secret=" + clientSecret,
     "refresh_token=" + refresh_token,
   ];
+
+  log("BackChannel OIDC Logout", formBody);
 
   if (!access_token || !refresh_token) {
     const error_data = {
@@ -121,9 +126,9 @@ export async function initiateBackChannelOIDCLogout(
     };
   } else {
     const error_data: OIDCResponse = await res.json();
-    console.log("logout response not ok");
-    console.log(error_data);
-    console.log(formBody.join("&"));
+    log("logout response not ok");
+    log(error_data);
+    log(formBody.join("&"));
     return error_data;
   }
 }
@@ -171,8 +176,8 @@ export async function renewOIDCToken(
     return data;
   } else {
     const data: OIDCResponse = await res.json();
-    console.log("renew response not ok");
-    console.log(data);
+    log("renew response not ok");
+    log(data);
     return data;
   }
 }
@@ -215,8 +220,8 @@ export async function introspectOIDCToken(
     return tokenIntrospect;
   } else {
     const data: OIDCResponse = await res.json();
-    console.log("introspect response not ok");
-    console.log(data);
+    log("introspect response not ok");
+    log(data);
     return data;
   }
 }

@@ -24,8 +24,6 @@ export const handle: Handle = async ({ event, resolve }) => {
   const { request } = event;
 
   log("handle", request.url);
-  log("handle EVENT", event.url);
-  log("handle EVENT", event.url.searchParams);
   // Initialization part
   const userGen = userDetailsGenerator(
     event,

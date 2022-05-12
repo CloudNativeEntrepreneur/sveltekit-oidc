@@ -3,6 +3,7 @@ import { parseCookie } from "./cookie";
 import { isTokenExpired } from "./jwt";
 import {
   initiateBackChannelOIDCAuth,
+  initiateBackChannelOIDCLogout,
   introspectOIDCToken,
   renewOIDCToken,
 } from "./auth-api";
@@ -28,36 +29,41 @@ export const getUserSession = async (
 ) => {
   const oidcBaseUrl = `${issuer}/protocol/openid-connect`;
   const { request } = event;
+  let locals: Locals = event.locals as Locals;
+
+  log(locals);
+
   try {
-    if ((event.locals as Locals)?.access_token) {
+    if (locals?.access_token) {
       if (
-        (event.locals as Locals).user &&
-        (event.locals as Locals).userid &&
-        !isTokenExpired((event.locals as Locals).access_token)
+        locals.user &&
+        locals.userid &&
+        !isTokenExpired(locals.access_token)
       ) {
         let isTokenActive = true;
         try {
           const tokenIntrospect = await introspectOIDCToken(
-            (event.locals as Locals).access_token,
+            locals.access_token,
             oidcBaseUrl,
             clientId,
             clientSecret,
-            (event.locals as Locals).user.preferred_username
+            locals.user.preferred_username
           );
           isTokenActive = Object.keys(tokenIntrospect).includes("active")
             ? tokenIntrospect.active
             : false;
-          console.log("token active ", isTokenActive);
+          log("token active ", isTokenActive);
         } catch (e) {
           isTokenActive = false;
           console.error("Error while fetching introspect details", e);
         }
         if (isTokenActive) {
           return {
-            user: { ...(event.locals as Locals).user },
-            access_token: (event.locals as Locals).access_token,
-            refresh_token: (event.locals as Locals).refresh_token,
-            userid: (event.locals as Locals).user.sub,
+            user: { ...locals.user },
+            access_token: locals.access_token,
+            refresh_token: locals.refresh_token,
+            id_token: locals.id_token,
+            userid: locals.user.sub,
             auth_server_online: true,
           };
         }
@@ -85,14 +91,14 @@ export const getUserSession = async (
       const res = await fetch(`${oidcBaseUrl}/userinfo`, {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${(event.locals as Locals).access_token}`,
+          Authorization: `Bearer ${locals.access_token}`,
         },
       });
       if (res.ok) {
         const data = await res.json();
-        // console.log('userinfo fetched');
-        (event.locals as Locals).userid = data.sub;
-        (event.locals as Locals).user = { ...data };
+        // log('userinfo fetched');
+        locals.userid = data.sub;
+        locals.user = { ...data };
         return {
           user: {
             // only include properties needed client-side —
@@ -100,31 +106,28 @@ export const getUserSession = async (
             // like access tokens etc
             ...data,
           },
-          access_token: (event.locals as Locals).access_token,
-          refresh_token: (event.locals as Locals).refresh_token,
+          access_token: locals.access_token,
+          refresh_token: locals.refresh_token,
           userid: data.sub,
           auth_server_online: true,
         };
       } else {
         try {
           const data = await res.json();
-          // console.log(data, import.meta.env.VITE_OIDC_TOKEN_REFRESH_MAX_RETRIES);
+          // log(data, import.meta.env.VITE_OIDC_TOKEN_REFRESH_MAX_RETRIES);
           if (
             data?.error &&
-            (event.locals as Locals)?.retries <
+            locals?.retries <
               import.meta.env.VITE_OIDC_TOKEN_REFRESH_MAX_RETRIES
           ) {
-            console.log(
-              "old token expiry",
-              isTokenExpired((event.locals as Locals).access_token)
-            );
+            log("old token expiry", isTokenExpired(locals.access_token));
             const newTokenData = await renewOIDCToken(
-              (event.locals as Locals).refresh_token,
+              locals.refresh_token,
               oidcBaseUrl,
               clientId,
               clientSecret
             );
-            // console.log(newTokenData);
+            // log(newTokenData);
             if (newTokenData?.error) {
               throw {
                 error: data?.error ? data.error : "user_info error",
@@ -133,9 +136,8 @@ export const getUserSession = async (
                   : "Unable to retrieve user Info",
               };
             } else {
-              (event.locals as Locals).access_token = newTokenData.access_token;
-              (event.locals as Locals).retries =
-                (event.locals as Locals).retries + 1;
+              locals.access_token = newTokenData.access_token;
+              locals.retries = locals.retries + 1;
               return await getUserSession(
                 event,
                 issuer,
@@ -160,32 +162,27 @@ export const getUserSession = async (
         }
       }
     } else {
-      // console.error('getSession (event.locals as Locals).access_token ', (event.locals as Locals).access_token);
+      // console.error('getSession locals.access_token ', locals.access_token);
       try {
         if (
-          (event.locals as Locals)?.retries <
-          import.meta.env.VITE_OIDC_TOKEN_REFRESH_MAX_RETRIES
+          locals?.retries < import.meta.env.VITE_OIDC_TOKEN_REFRESH_MAX_RETRIES
         ) {
-          console.log(
-            "old token expiry",
-            isTokenExpired((event.locals as Locals).access_token)
-          );
+          log("old token expiry", isTokenExpired(locals.access_token));
           const newTokenData = await renewOIDCToken(
-            (event.locals as Locals).refresh_token,
+            locals.refresh_token,
             oidcBaseUrl,
             clientId,
             clientSecret
           );
-          // console.log(newTokenData);
+          // log(newTokenData);
           if (newTokenData?.error) {
             throw {
               error: newTokenData.error,
               error_description: newTokenData.error_description,
             };
           } else {
-            (event.locals as Locals).access_token = newTokenData.access_token;
-            (event.locals as Locals).retries =
-              (event.locals as Locals).retries + 1;
+            locals.access_token = newTokenData.access_token;
+            locals.retries = locals.retries + 1;
             return await getUserSession(
               event,
               issuer,
@@ -227,25 +224,22 @@ export const getUserSession = async (
       };
     }
   } catch (err) {
-    (event.locals as Locals).access_token = "";
-    (event.locals as Locals).refresh_token = "";
-    (event.locals as Locals).userid = "";
-    (event.locals as Locals).user = null;
+    locals.access_token = "";
+    locals.refresh_token = "";
+    locals.userid = "";
+    locals.user = null;
     if (err?.error) {
-      (event.locals as Locals).authError.error = err.error;
+      locals.authError.error = err.error;
     }
     if (err?.error_description) {
-      (event.locals as Locals).authError.error_description =
-        err.error_description;
+      locals.authError.error_description = err.error_description;
     }
     return {
       user: null,
       access_token: null,
       refresh_token: null,
       userid: null,
-      error: (event.locals as Locals).authError?.error
-        ? (event.locals as Locals).authError
-        : null,
+      error: locals.authError?.error ? locals.authError : null,
       auth_server_online: err.error !== "auth_server_conn_error" ? true : false,
     };
   }
@@ -260,6 +254,8 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
 ) {
   const oidcBaseUrl = `${issuer}/protocol/openid-connect`;
   const { request } = event;
+
+  let locals: Locals = event.locals as Locals;
   const cookies = request.headers.get("cookie")
     ? parseCookie(request.headers.get("cookie") || "")
     : null;
@@ -268,8 +264,8 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
     ? JSON.parse(cookies?.["userInfo"])
     : {};
 
-  (event.locals as Locals).retries = 0;
-  (event.locals as Locals).authError = {
+  locals.retries = 0;
+  locals.authError = {
     error: null,
     error_description: null,
   };
@@ -282,34 +278,34 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
   let ssr_redirect_uri = "/";
 
   // Handling user logout
-  // if (request.query.get("event") === "logout") {
-  //   await initiateBackChannelOIDCLogout(
-  //     (event.locals as Locals).access_token,
-  //     clientId,
-  //     clientSecret,
-  //     oidcBaseUrl,
-  //     (event.locals as Locals).refresh_token
-  //   );
-  //   (event.locals as Locals).access_token = null;
-  //   (event.locals as Locals).refresh_token = null;
-  //   (event.locals as Locals).authError = {
-  //     error: "invalid_session",
-  //     error_description: "Session is no longer active",
-  //   };
-  //   (event.locals as Locals).user = null;
-  //   ssr_redirect_uri = request.path;
-  //   let response: ServerResponse = {
-  //     status: 302,
-  //     headers: {
-  //       Location: ssr_redirect_uri,
-  //     },
-  //   };
-  //   try {
-  //     response = populateResponseHeaders(request, response);
-  //     response = injectCookies(request, response);
-  //   } catch (e) {}
-  //   return response;
-  // }
+  if (event.url.searchParams.get("event") === "logout") {
+    await initiateBackChannelOIDCLogout(
+      locals.access_token,
+      clientId,
+      clientSecret,
+      oidcBaseUrl,
+      locals.refresh_token
+    );
+    locals.access_token = null;
+    locals.refresh_token = null;
+    locals.authError = {
+      error: "invalid_session",
+      error_description: "Session is no longer active",
+    };
+    locals.user = null;
+    ssr_redirect_uri = request.url;
+    let response = {
+      status: 302,
+      headers: {
+        Location: ssr_redirect_uri,
+      },
+    };
+    try {
+      response = populateResponseHeaders(event, response);
+      response = injectCookies(event, response);
+    } catch (e) {}
+    return response;
+  }
 
   // Parsing user object
   const userJsonParseFailed = parseUser(event, userInfo);
@@ -317,8 +313,7 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
   // Backchannel Authorization code flow
   if (
     event.url.searchParams.get("code") &&
-    (!isAuthInfoInvalid(event.locals as Locals) ||
-      isTokenExpired((event.locals as Locals).access_token))
+    (!isAuthInfoInvalid(locals) || isTokenExpired(locals.access_token))
   ) {
     const jwts: OIDCResponse = await initiateBackChannelOIDCAuth(
       event.url.searchParams.get("code"),
@@ -328,25 +323,25 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
       appRedirectUrl + event.url.pathname
     );
     if (jwts.error) {
-      (event.locals as Locals).authError = {
+      locals.authError = {
         error: jwts.error,
         error_description: jwts.error_description,
       };
     } else {
-      (event.locals as Locals).access_token = jwts?.access_token;
-      (event.locals as Locals).refresh_token = jwts?.refresh_token;
+      locals.access_token = jwts?.access_token;
+      locals.refresh_token = jwts?.refresh_token;
     }
     ssr_redirect = true;
     ssr_redirect_uri = event.url.pathname;
   }
 
-  const tokenExpired = isTokenExpired((event.locals as Locals).access_token);
-  const beforeAccessToken = (event.locals as Locals).access_token;
+  const tokenExpired = isTokenExpired(locals.access_token);
+  const beforeAccessToken = locals.access_token;
 
   event = { ...event, ...(yield) };
 
   let response = { status: 200, headers: {} };
-  const afterAccessToken = (event.locals as Locals).access_token;
+  const afterAccessToken = locals.access_token;
 
   if (isAuthInfoInvalid(request.headers) || tokenExpired) {
     response = populateResponseHeaders(event, response);
@@ -354,7 +349,7 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
 
   if (
     isAuthInfoInvalid(userInfo) ||
-    ((event.locals as Locals)?.user && userJsonParseFailed) ||
+    (locals?.user && userJsonParseFailed) ||
     tokenExpired ||
     beforeAccessToken !== afterAccessToken
   ) {

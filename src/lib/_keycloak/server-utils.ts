@@ -131,4 +131,5 @@ export const setRequestLocalsFromNewTokens = (
   (event.locals as Locals).user = parsedUserInfo;
   (event.locals as Locals).access_token = tokenSet.accessToken;
   (event.locals as Locals).refresh_token = tokenSet.refreshToken;
+  (event.locals as Locals).id_token = tokenSet.idToken;
 };

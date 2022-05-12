@@ -5,6 +5,9 @@
   import { OIDC_CONTEXT_CLIENT_PROMISE } from "./Keycloak.svelte";
   import type { OidcContextClientPromise } from "../types";
   import { isTokenExpired } from "./jwt";
+  import debug from "debug";
+
+  const log = debug("sveltekit-oidc:ProtectedRoute");
 
   let isAuthenticated = false;
 
@@ -21,14 +24,14 @@
         !($session as any)?.user
       ) {
         try {
-          console.log(redirect);
+          log(redirect);
           window.location.assign(redirect);
         } catch (e) {
           console.error(e);
         }
       } else {
         if (isTokenExpired(($session as any).access_token)) {
-          console.log(redirect);
+          log(redirect);
           window.location.assign(redirect);
         }
         isAuthenticated = true;

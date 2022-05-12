@@ -1,13 +1,21 @@
 <script context="module" lang="ts">
   import { initiateFrontChannelOIDCAuth } from "./auth-api";
-  import type { Load } from "@sveltejs/kit";
-  import type { OidcContextClientFn, OidcContextClientPromise } from "../types";
+  import type {
+    OidcContextClientFn,
+    OidcContextClientPromise,
+    UserSession,
+  } from "../types";
+  import debug from "debug";
+  import { get, writable } from "svelte/store";
+
+  const log = debug("sveltekit-oidc:lib/_keycloak/Keycloak.svelte");
+
+  log("KEYCLOAK AUTH");
 
   export const OIDC_CONTEXT_CLIENT_PROMISE = {};
   export const OIDC_CONTEXT_REDIRECT_URI: string = "";
   export const OIDC_CONTEXT_POST_LOGOUT_REDIRECT_URI: string = "";
 
-  import { writable } from "svelte/store";
   /**
    * Stores
    */
@@ -29,69 +37,147 @@
     authError,
   };
 
+  // const onReceivedNewTokens = (tokens: {
+  //   accessToken: string;
+  //   idToken: string;
+  //   refreshToken: string;
+  // }) => {
+  //   const user = getTokenData(tokens.idToken);
+  //   delete user.aud;
+  //   delete user.exp;
+  //   delete user.iat;
+  //   delete user.iss;
+  //   delete user.sub;
+  //   delete user.typ;
+  //   if (user?.username) {
+  //     user.username = decodeURI(user.username);
+  //   }
+
+  //   AuthStore.isAuthenticated.set(true);
+  //   AuthStore.accessToken.set(tokens.accessToken);
+  //   AuthStore.refreshToken.set(tokens.refreshToken);
+  //   AuthStore.idToken.set(tokens.idToken);
+  //   AuthStore.userInfo.set({
+  //     ...user,
+  //   });
+
+  //   session.set({
+  //     userid: user.userid,
+  //     accessToken: tokens.accessToken,
+  //     refreshToken: tokens.refreshToken,
+  //     user,
+  //     authServerOnline: true,
+  //   });
+
+  //   log("session updated");
+
+  //   return user;
+  // };
+
+  const clearAuthStoreInfo = () => {
+    AuthStore.isAuthenticated.set(false);
+    AuthStore.accessToken.set(null);
+    AuthStore.refreshToken.set(null);
+    AuthStore.idToken.set(null);
+    AuthStore.userInfo.set(null);
+  };
+
+  // const handleLoggedIn = (tokens: any) => {
+  //   const user = onReceivedNewTokens(tokens);
+  //   localStorage.removeItem("user_logout");
+  //   localStorage.setItem("user_login", JSON.stringify(user));
+  // };
+
+  const checkAuthServerIsOnline = async (issuer) => {
+    const testAuthServerResponse = await fetch(issuer, {
+      headers: {
+        "Content-Type": "application/json",
+      },
+    });
+    if (testAuthServerResponse.ok) {
+      handleAuthServerOnline();
+    } else {
+      throw {
+        error: await testAuthServerResponse.json(),
+      };
+    }
+  };
+
+  const handleAuthServerOnline = () => {
+    session.set({
+      ...session,
+      authServerOnline: true,
+    });
+  };
+
+  const handleAuthServerOffline = (error) => {
+    const errorType = "auth_server_conn_error";
+    const errorDescription = `Auth Server Connection Error: ${error.toString()}`;
+    console.error(errorDescription);
+    AuthStore.isLoading.set(false);
+    AuthStore.authError.set({
+      error: errorType,
+      errorDescription,
+    });
+    session.set({
+      ...session,
+      authServerOnline: false,
+    });
+  };
+
+  const setAuthStoreInfoFromSession = (currentSession) => {
+    log("SESSION", currentSession);
+    AuthStore.isAuthenticated.set(true);
+    AuthStore.accessToken.set(currentSession.accessToken);
+    AuthStore.refreshToken.set(currentSession.refreshToken);
+    AuthStore.idToken.set(currentSession.idToken);
+    AuthStore.authError.set(null);
+  };
+
   export async function login(oidcPromise: OidcContextClientPromise) {
+    debugger;
+    const oidcContextClientFn = await oidcPromise;
+    const { session, issuer, page, client_id, redirect } =
+      oidcContextClientFn();
+
     try {
-      const oidc_func = await oidcPromise;
-      const { session, issuer, redirect, page } = oidc_func();
-      console.log(session, issuer, redirect, page);
-      if (session?.auth_server_online === false) {
-        const testAuthServerResponse = await fetch(issuer, {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        if (!testAuthServerResponse.ok) {
-          throw {
-            error: await testAuthServerResponse.json(),
-          };
-        }
-      } else {
-        AuthStore.isLoading.set(true);
-        const relogin_initiate_error_list = [
-          "missing_jwt",
-          "invalid_grant",
-          "invalid_token",
-          "token_refresh_error",
-        ];
-        const relogin_initiate = session?.error?.error
-          ? relogin_initiate_error_list.includes(session.error.error)
-          : false;
-        if (!session?.user && (!session?.error || relogin_initiate)) {
-          AuthStore.isAuthenticated.set(false);
-          AuthStore.accessToken.set(null);
-          AuthStore.refreshToken.set(null);
-          window.location.assign(redirect);
-        } else if (session?.error) {
-          AuthStore.isAuthenticated.set(false);
-          AuthStore.accessToken.set(null);
-          AuthStore.refreshToken.set(null);
-          AuthStore.authError.set(session.error);
-          if (session.error?.error === "invalid_request") {
-            window.location.assign(redirect);
-          } else {
-            AuthStore.isLoading.set(false);
-          }
-        } else {
-          AuthStore.isLoading.set(false);
-          AuthStore.isAuthenticated.set(true);
-          AuthStore.accessToken.set(session.access_token);
-          AuthStore.refreshToken.set(session.refresh_token);
-          AuthStore.authError.set(null);
-          if (window.location.toString().includes("code=")) {
-            window.location.assign(page.path);
-          }
-        }
+      // check server is online if it was marked as offline in the session
+      // such as if the server side couldn't reach the auth server
+      if (session?.authServerOnline === false) {
+        await checkAuthServerIsOnline(issuer);
       }
-    } catch (e) {
-      console.error(e);
+    } catch (error) {
+      return handleAuthServerOffline(error);
+    }
+
+    AuthStore.isLoading.set(true);
+
+    const errorsToReinitiateLogin = [
+      "missing_jwt",
+      "invalid_grant",
+      "invalid_token",
+      "token_refresh_error",
+    ];
+
+    const hasErrorThatShouldResultInLoggingInAgain = session?.error?.error
+      ? errorsToReinitiateLogin.includes(session.error.error)
+      : false;
+
+    if (
+      !session?.user &&
+      (!session?.error || hasErrorThatShouldResultInLoggingInAgain)
+    ) {
+      clearAuthStoreInfo();
+      window.location.assign(redirect);
+    } else if (session?.error) {
+      log("There is an error in the session", session?.error);
+      clearAuthStoreInfo();
+      AuthStore.authError.set(session.error);
       AuthStore.isLoading.set(false);
-      AuthStore.isAuthenticated.set(false);
-      AuthStore.accessToken.set(null);
-      AuthStore.refreshToken.set(null);
-      AuthStore.authError.set({
-        error: "auth_server_conn_error",
-        error_description: "Auth Server Connection Error",
-      });
+      window.location.assign(redirect);
+    } else {
+      AuthStore.isLoading.set(false);
+      setAuthStoreInfoFromSession(session);
     }
   }
 
@@ -99,20 +185,25 @@
     oidcPromise: OidcContextClientPromise,
     post_logout_redirect_uri: string
   ) {
+    debugger;
     const oidc_func = await oidcPromise;
     const { issuer, client_id } = oidc_func();
     const logout_endpoint = `${issuer}/protocol/openid-connect/logout`;
-    const logout_uri = `${issuer}/protocol/openid-connect/logout?redirect_uri=${encodeURIComponent(
+    const logout_uri = `${issuer}/protocol/openid-connect/logout?id_token_hint=${get(
+      AuthStore.idToken
+    )}&post_logout_redirect_uri=${encodeURIComponent(
       post_logout_redirect_uri + "?event=logout"
     )}`;
 
     const res = await fetch(logout_endpoint, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${AuthStore.accessToken}`,
+        Authorization: `Bearer ${get(AuthStore.accessToken)}`,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      body: `client_id=${client_id}&refresh_token=${AuthStore.refreshToken}`,
+      body: `client_id=${client_id}&refresh_token=${get(
+        AuthStore.refreshToken
+      )}`,
     });
     window.localStorage.setItem("user_logout", "true");
     if (res.ok) {
@@ -129,6 +220,7 @@
   import { browser } from "$app/env";
 
   import { page, session } from "$app/stores";
+  import { getTokenData } from "./jwt";
 
   // props.
   export let issuer: string;
@@ -181,9 +273,10 @@
       if (res.ok) {
         const resData = await res.json();
         if (!resData.error) {
-          const { access_token, refresh_token } = resData;
+          const { access_token, refresh_token, id_token } = resData;
           AuthStore.accessToken.set(access_token);
           AuthStore.refreshToken.set(refresh_token);
+          AuthStore.idToken.set(id_token);
           const jwtData = JSON.parse(
             atob(access_token.split(".")[1]).toString()
           );
@@ -268,8 +361,8 @@
           );
           if (
             userInfo &&
-            (!$session.user ||
-              $session.user?.preferred_username !==
+            (!($session as UserSession).user ||
+              ($session as UserSession).user?.preferred_username !==
                 userInfo?.preferred_username)
           ) {
             const answer = confirm(
@@ -285,15 +378,15 @@
   };
 
   async function handleMount() {
-    console.log("Keycloak:handleMount");
+    log("Keycloak:handleMount");
     try {
       window.addEventListener("storage", syncLogout);
       window.addEventListener("storage", syncLogin);
     } catch (e) {}
 
     try {
-      if ($session?.auth_server_online === false) {
-        console.log("Keycloak:handleMount - testing server");
+      if (($session as UserSession)?.auth_server_online === false) {
+        log("Keycloak:handleMount - testing server");
         const testAuthServerResponse = await fetch(issuer, {
           headers: {
             "Content-Type": "application/json",
@@ -306,19 +399,23 @@
         }
       } else {
         AuthStore.isLoading.set(false);
-        if (!$session.user) {
+        if (!($session as UserSession).user) {
           AuthStore.isAuthenticated.set(false);
           AuthStore.accessToken.set(null);
           AuthStore.refreshToken.set(null);
+          AuthStore.idToken.set(null);
           if (window.location.toString().includes("event=logout")) {
             window.location.assign($page.url.pathname);
           }
         } else {
           AuthStore.isAuthenticated.set(true);
-          AuthStore.accessToken.set($session.access_token);
-          AuthStore.refreshToken.set($session.refresh_token);
+          AuthStore.accessToken.set(($session as UserSession).access_token);
+          AuthStore.refreshToken.set(($session as UserSession).refresh_token);
+          AuthStore.refreshToken.set(($session as UserSession).id_token);
           const jwtData = JSON.parse(
-            atob($session.access_token.split(".")[1]).toString()
+            atob(
+              ($session as UserSession).access_token.split(".")[1]
+            ).toString()
           );
           const tokenSkew = 10; // 10 seconds before actual token expiry
           const skewedTimeoutDuration =
@@ -328,7 +425,7 @@
               ? skewedTimeoutDuration
               : skewedTimeoutDuration + tokenSkew * 1000;
           tokenTimeoutObj = setTimeout(async () => {
-            await silentRefresh($session.refresh_token);
+            await silentRefresh(($session as UserSession).refresh_token);
           }, timeoutDuration);
           AuthStore.authError.set(null);
           if (window.location.toString().includes("code=")) {
@@ -338,7 +435,7 @@
           try {
             window.localStorage.setItem(
               "user_login",
-              JSON.stringify($session.user)
+              JSON.stringify(($session as UserSession).user)
             );
           } catch (e) {}
         }

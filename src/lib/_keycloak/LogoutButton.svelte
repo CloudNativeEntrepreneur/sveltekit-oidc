@@ -14,12 +14,12 @@
     OIDC_CONTEXT_POST_LOGOUT_REDIRECT_URI
   );
 
-  let clazz: string = "btn btn-primary";
-  export { clazz as class };
+  let _class: string = "btn btn-primary";
+  export { _class as class };
 </script>
 
 <button
-  class={clazz}
+  class={_class}
   on:click|preventDefault={() => logout(oidcPromise, post_logout_redirect_uri)}
 >
   <slot />

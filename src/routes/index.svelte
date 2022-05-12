@@ -4,9 +4,15 @@
     isLoading,
     authError,
     accessToken,
+    refreshToken,
+    idToken,
     LoginButton,
     LogoutButton,
   } from "$lib";
+
+  import debug from "debug";
+
+  const log = debug("sveltekit-oidc:index");
 
   let access_token_elem;
   let is_access_token_copied = false;
@@ -25,8 +31,8 @@
           is_access_token_copied = false;
         }, 1000);
       } catch (e) {
-        console.log(access_token_elem);
-        console.error(e);
+        log(access_token_elem);
+        log("ERROR", e);
       }
     }
   }
@@ -66,7 +72,26 @@
           {/if}
         </div>
       </div>
+      <div><span class="font-bold text-gray-800">Refresh Token</span></div>
+      <div class="flex flex-row justify-end items-start w-100">
+        <p
+          refresh-token
+          class="break-words w-100 max-w-5xl m-2 border-none overflow-visible font-mono text-gray-600"
+        >
+          {$refreshToken}
+        </p>
+      </div>
+      <div><span class="font-bold text-gray-800">Id Token</span></div>
+      <div class="flex flex-row justify-end items-start w-100">
+        <p
+          id-token
+          class="break-words w-100 max-w-5xl m-2 border-none overflow-visible font-mono text-gray-600"
+        >
+          {$idToken}
+        </p>
+      </div>
       <LogoutButton class="btn btn-primary">Logout</LogoutButton>
+      <LoginButton class="btn btn-primary">Login</LoginButton>
     </section>
   {:else if $authError}
     <section class="p-5 rounded-lg bg-red-400">
