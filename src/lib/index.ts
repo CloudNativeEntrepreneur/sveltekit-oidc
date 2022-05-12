@@ -24,7 +24,7 @@ export {
   initiateFrontChannelOIDCAuth,
   introspectOIDCToken,
   renewOIDCToken,
-} from "./_keycloak/auth-api";
-export { userDetailsGenerator, getUserSession } from "./_keycloak/hooks";
+} from "./_keycloak/auth-api.js";
+export { userDetailsGenerator, getUserSession } from "./_keycloak/hooks.js";
 export { parseCookie } from "./_keycloak/cookie";
 export { getServerOnlyEnvVar } from "./getServerOnlyEnvVar";

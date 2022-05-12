@@ -15,7 +15,7 @@
       );
       const oidc_func = await oidcPromise;
       const { redirect } = oidc_func($page.url.pathname, $page.params);
-      if (!$session?.user || !$session?.access_token || !$session?.user) {
+      if (!($session as any)?.user || !($session as any)?.access_token || !($session as any)?.user) {
         try {
           console.log(redirect);
           window.location.assign(redirect);
@@ -23,7 +23,7 @@
           console.error(e);
         }
       } else {
-        if (isTokenExpired($session.access_token)) {
+        if (isTokenExpired(($session as any).access_token)) {
           console.log(redirect);
           window.location.assign(redirect);
         }
