@@ -411,7 +411,7 @@
           AuthStore.isAuthenticated.set(true);
           AuthStore.accessToken.set(($session as UserSession).access_token);
           AuthStore.refreshToken.set(($session as UserSession).refresh_token);
-          AuthStore.refreshToken.set(($session as UserSession).id_token);
+          AuthStore.idToken.set(($session as UserSession).id_token);
           const jwtData = JSON.parse(
             atob(
               ($session as UserSession).access_token.split(".")[1]

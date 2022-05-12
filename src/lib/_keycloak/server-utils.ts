@@ -111,6 +111,9 @@ export const populateResponseHeaders = (event: RequestEvent, response) => {
   if (locals.refresh_token) {
     response.headers["refresh_token"] = `${locals.refresh_token}`;
   }
+  if (locals.id_token) {
+    response.headers["id_token"] = `${locals.id_token}`;
+  }
   return response;
 };
 

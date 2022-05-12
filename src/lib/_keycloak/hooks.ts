@@ -31,7 +31,8 @@ export const getUserSession = async (
   const { request } = event;
   let locals: Locals = event.locals as Locals;
 
-  log(locals);
+  log('Get user session - locals');
+  log(locals)
 
   try {
     if (locals?.access_token) {
@@ -52,6 +53,7 @@ export const getUserSession = async (
           isTokenActive = Object.keys(tokenIntrospect).includes("active")
             ? tokenIntrospect.active
             : false;
+          log("token introspection ", tokenIntrospect);
           log("token active ", isTokenActive);
         } catch (e) {
           isTokenActive = false;
@@ -68,6 +70,8 @@ export const getUserSession = async (
           };
         }
       }
+
+      // test connection
       try {
         const testAuthServerResponse = await fetch(
           import.meta.env.VITE_OIDC_ISSUER,
@@ -88,17 +92,21 @@ export const getUserSession = async (
           error_description: "Auth Server Connection Error",
         };
       }
+
+      // get userinfo
       const res = await fetch(`${oidcBaseUrl}/userinfo`, {
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${locals.access_token}`,
         },
       });
+
       if (res.ok) {
         const data = await res.json();
         // log('userinfo fetched');
         locals.userid = data.sub;
         locals.user = { ...data };
+        
         return {
           user: {
             // only include properties needed client-side —
@@ -108,6 +116,7 @@ export const getUserSession = async (
           },
           access_token: locals.access_token,
           refresh_token: locals.refresh_token,
+          id_token: locals.id_token,
           userid: data.sub,
           auth_server_online: true,
         };
@@ -127,7 +136,8 @@ export const getUserSession = async (
               clientId,
               clientSecret
             );
-            // log(newTokenData);
+            log('new token data:')
+            log(newTokenData);
             if (newTokenData?.error) {
               throw {
                 error: data?.error ? data.error : "user_info error",
@@ -137,6 +147,8 @@ export const getUserSession = async (
               };
             } else {
               locals.access_token = newTokenData.access_token;
+              locals.refresh_token = newTokenData.refresh_token;
+              locals.id_token = newTokenData.id_token;
               locals.retries = locals.retries + 1;
               return await getUserSession(
                 event,
@@ -182,6 +194,8 @@ export const getUserSession = async (
             };
           } else {
             locals.access_token = newTokenData.access_token;
+            locals.refresh_token = newTokenData.refresh_token;
+            locals.id_token = newTokenData.id_token;
             locals.retries = locals.retries + 1;
             return await getUserSession(
               event,
@@ -226,6 +240,7 @@ export const getUserSession = async (
   } catch (err) {
     locals.access_token = "";
     locals.refresh_token = "";
+    locals.id_token = "";
     locals.userid = "";
     locals.user = null;
     if (err?.error) {
@@ -238,6 +253,7 @@ export const getUserSession = async (
       user: null,
       access_token: null,
       refresh_token: null,
+      id_token: null,
       userid: null,
       error: locals.authError?.error ? locals.authError : null,
       auth_server_online: err.error !== "auth_server_conn_error" ? true : false,
