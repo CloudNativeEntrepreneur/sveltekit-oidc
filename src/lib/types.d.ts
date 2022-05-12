@@ -3,7 +3,7 @@ import type { RequestEvent } from "@sveltejs/kit/types/hooks";
 
 export type AuthError = {
   error: string;
-  errorDescription: string;
+  error_description: string;
 };
 export interface Locals {
   userid: string;
@@ -39,7 +39,7 @@ export interface OIDCFailureResponse extends AuthError {}
 export type OIDCResponse = OIDCSuccessResponse & OIDCFailureResponse;
 
 export interface UserDetailsGeneratorFn {
-  (event: RequestEvent<Locals>): AsyncGenerator<any, any, RequestEvent<Locals>>;
+  (event: RequestEvent<Locals>, issuer: string, clientId: string, clientSecret: string, appRedirectUrl: string): AsyncGenerator<any, any, RequestEvent<Locals>>;
 }
 export interface UserSession {
   user: any;

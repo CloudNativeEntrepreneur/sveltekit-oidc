@@ -17,13 +17,17 @@ const clientSecret =
   getServerOnlyEnvVar(process, "OIDC_CLIENT_SECRET") ||
   config.oidc.clientSecret;
 const refreshTokenMaxRetries = config.oidc.refreshTokenMaxRetries;
+const redirectUri = config.oidc.redirectUri
 
 // https://kit.svelte.dev/docs#hooks-handle
 export const handle: Handle = async ({ event, resolve }) => {
-  log("handle", event.request.url);
+  const { request } = event
 
+  log("handle", request.url);
+  log("handle EVENT", event.url)
+  log("handle EVENT", event.url.searchParams)
   // Initialization part
-  const userGen = userDetailsGenerator(event);
+  const userGen = userDetailsGenerator(event, issuer, clientId, clientSecret, redirectUri);
   const { value, done } = await userGen.next();
   if (done) {
     const response = value;
@@ -34,10 +38,9 @@ export const handle: Handle = async ({ event, resolve }) => {
   (event.locals as Locals).cookieAttributes = "Path=/; HttpOnly;";
 
   // Your code here -----------
-  log("FIX METHOD");
-  // if (event.request.query.has("_method")) {
-  //   event.request.method = request.query.get("_method").toUpperCase();
-  // }
+  if (event.url.searchParams.has("_method")) {
+    Object.assign(request, { method: event.url.searchParams.get("_method") })
+  }
   // Handle resolve
   const response = await resolve(event);
 
@@ -103,7 +106,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 };
 
 /** @type {import('@sveltejs/kit').GetSession} */
-export const getSession: GetSession = async (event: RequestEvent<Locals>) => {
+export const getSession: GetSession = async (event: RequestEvent) => {
   log("getting user session...");
 
   const userSession = await getUserSession(

@@ -1,7 +1,7 @@
-import type { Locals, UserDetailsGeneratorFn } from "../types";
+import type { Locals, OIDCResponse, UserDetailsGeneratorFn } from "../types";
 import { parseCookie } from "./cookie";
 import { isTokenExpired } from "./jwt";
-import { introspectOIDCToken, renewOIDCToken } from "./auth-api";
+import { initiateBackChannelOIDCAuth, introspectOIDCToken, renewOIDCToken } from "./auth-api";
 import {
   injectCookies,
   isAuthInfoInvalid,
@@ -12,6 +12,8 @@ import {
 } from "./server-utils";
 import debug from "debug";
 import type { RequestEvent } from "@sveltejs/kit/types/internal";
+
+const log = debug('sveltekit-oidc:_keycloak/hooks')
 
 export const getUserSession = async (
   event: RequestEvent,
@@ -241,8 +243,13 @@ export const getUserSession = async (
 };
 
 export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
-  event: RequestEvent
+  event: RequestEvent,
+  issuer,
+  clientId,
+  clientSecret,
+  appRedirectUrl
 ) {
+  const oidcBaseUrl = `${issuer}/protocol/openid-connect`;
   const { request } = event;
   const cookies = request.headers.get("cookie")
     ? parseCookie(request.headers.get("cookie") || "")
@@ -255,7 +262,7 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
   (event.locals as Locals).retries = 0;
   (event.locals as Locals).authError = {
     error: null,
-    errorDescription: null,
+    error_description: null,
   };
 
   populateRequestLocals(event, "userid", userInfo, "");
@@ -299,30 +306,31 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
   const userJsonParseFailed = parseUser(event, userInfo);
 
   // Backchannel Authorization code flow
-  // if (
-  //   request.query.get("code") &&
-  //   (!isAuthInfoInvalid((event.locals as Locals)) ||
-  //     isTokenExpired((event.locals as Locals).access_token))
-  // ) {
-  //   const jwts: OIDCResponse = await initiateBackChannelOIDCAuth(
-  //     request.query.get("code"),
-  //     clientId,
-  //     clientSecret,
-  //     oidcBaseUrl,
-  //     appRedirectUrl + request.path
-  //   );
-  //   if (jwts.error) {
-  //     (event.locals as Locals).authError = {
-  //       error: jwts.error,
-  //       error_description: jwts.error_description,
-  //     };
-  //   } else {
-  //     (event.locals as Locals).access_token = jwts?.access_token;
-  //     (event.locals as Locals).refresh_token = jwts?.refresh_token;
-  //   }
-  //   ssr_redirect = true;
-  //   ssr_redirect_uri = request.path;
-  // }
+  if (
+    event.url.searchParams.get("code") &&
+    (!isAuthInfoInvalid((event.locals as Locals)) ||
+      isTokenExpired((event.locals as Locals).access_token))
+  ) {
+    
+    const jwts: OIDCResponse = await initiateBackChannelOIDCAuth(
+      event.url.searchParams.get("code"),
+      clientId,
+      clientSecret,
+      oidcBaseUrl,
+      appRedirectUrl + event.url.pathname
+    );
+    if (jwts.error) {
+      (event.locals as Locals).authError = {
+        error: jwts.error,
+        error_description: jwts.error_description,
+      };
+    } else {
+      (event.locals as Locals).access_token = jwts?.access_token;
+      (event.locals as Locals).refresh_token = jwts?.refresh_token;
+    }
+    ssr_redirect = true;
+    ssr_redirect_uri = event.url.pathname;
+  }
 
   const tokenExpired = isTokenExpired((event.locals as Locals).access_token);
   const beforeAccessToken = (event.locals as Locals).access_token;

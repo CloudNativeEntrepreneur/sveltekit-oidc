@@ -78,7 +78,7 @@ export const populateRequestLocals = (
   const { request } = event;
   let locals: Locals = event.locals as Locals;
 
-  log(request, locals)
+  // log(request, locals)
 
   if (request?.headers.get(keyName)) {
     event.locals[keyName] = request.headers.get(keyName);

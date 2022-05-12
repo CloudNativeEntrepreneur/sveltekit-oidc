@@ -6,6 +6,7 @@ import type {
   UserDetailsGeneratorFn,
   GetUserSessionFn,
 } from "../types";
+import { isTokenExpired } from "./jwt";
 
 export function initiateFrontChannelOIDCAuth(
   browser: boolean,
