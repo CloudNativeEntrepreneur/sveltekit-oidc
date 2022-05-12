@@ -135,7 +135,6 @@
   };
 
   export async function login(oidcPromise: OidcContextClientPromise) {
-    debugger;
     const oidcContextClientFn = await oidcPromise;
     const { session, issuer, page, client_id, redirect } =
       oidcContextClientFn();
@@ -185,7 +184,6 @@
     oidcPromise: OidcContextClientPromise,
     post_logout_redirect_uri: string
   ) {
-    debugger;
     const oidc_func = await oidcPromise;
     const { issuer, client_id } = oidc_func();
     const logout_endpoint = `${issuer}/protocol/openid-connect/logout`;
@@ -260,6 +258,7 @@
   setContext(OIDC_CONTEXT_POST_LOGOUT_REDIRECT_URI, post_logout_redirect_uri);
 
   let tokenTimeoutObj = null;
+
   export async function silentRefresh(oldRefreshToken: string) {
     try {
       const reqBody = `refresh_token=${oldRefreshToken}`;

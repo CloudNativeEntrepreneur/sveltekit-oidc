@@ -38,11 +38,9 @@
   }
 </script>
 
-<main
-  class="h-screen-minus-navbar w-screen flex flex-col justify-center items-center bg-gray-800"
->
+<main class="w-screen flex flex-col justify-center items-center bg-gray-800">
   <h1
-    class="mb-4 p-4 text-5xl bg-pink-600 text-gray-200 font-semibold rounded-md shadow-md"
+    class="mb-4 mt-20 p-4 text-5xl bg-pink-600 text-gray-200 font-semibold rounded-md shadow-md"
   >
     Sveltekit + OpenID Auth
   </h1>
@@ -55,7 +53,7 @@
       <div class="flex flex-row justify-end items-start w-100">
         <p
           access-token
-          class="break-words w-100 max-w-5xl m-2 border-none overflow-visible font-mono text-gray-600"
+          class="break-words text-xs w-100 max-w-5xl m-2 border-none overflow-visible font-mono text-gray-600"
           bind:this={access_token_elem}
         >
           {$accessToken}
@@ -76,7 +74,7 @@
       <div class="flex flex-row justify-end items-start w-100">
         <p
           refresh-token
-          class="break-words w-100 max-w-5xl m-2 border-none overflow-visible font-mono text-gray-600"
+          class="break-words text-xs w-100 max-w-5xl m-2 border-none overflow-visible font-mono text-gray-600"
         >
           {$refreshToken}
         </p>
@@ -85,7 +83,7 @@
       <div class="flex flex-row justify-end items-start w-100">
         <p
           id-token
-          class="break-words w-100 max-w-5xl m-2 border-none overflow-visible font-mono text-gray-600"
+          class="break-words text-xs w-100 max-w-5xl m-2 border-none overflow-visible font-mono text-gray-600"
         >
           {$idToken}
         </p>
