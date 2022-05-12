@@ -17,17 +17,23 @@ const clientSecret =
   getServerOnlyEnvVar(process, "OIDC_CLIENT_SECRET") ||
   config.oidc.clientSecret;
 const refreshTokenMaxRetries = config.oidc.refreshTokenMaxRetries;
-const redirectUri = config.oidc.redirectUri
+const redirectUri = config.oidc.redirectUri;
 
 // https://kit.svelte.dev/docs#hooks-handle
 export const handle: Handle = async ({ event, resolve }) => {
-  const { request } = event
+  const { request } = event;
 
   log("handle", request.url);
-  log("handle EVENT", event.url)
-  log("handle EVENT", event.url.searchParams)
+  log("handle EVENT", event.url);
+  log("handle EVENT", event.url.searchParams);
   // Initialization part
-  const userGen = userDetailsGenerator(event, issuer, clientId, clientSecret, redirectUri);
+  const userGen = userDetailsGenerator(
+    event,
+    issuer,
+    clientId,
+    clientSecret,
+    redirectUri
+  );
   const { value, done } = await userGen.next();
   if (done) {
     const response = value;
@@ -39,7 +45,7 @@ export const handle: Handle = async ({ event, resolve }) => {
 
   // Your code here -----------
   if (event.url.searchParams.has("_method")) {
-    Object.assign(request, { method: event.url.searchParams.get("_method") })
+    Object.assign(request, { method: event.url.searchParams.get("_method") });
   }
   // Handle resolve
   const response = await resolve(event);

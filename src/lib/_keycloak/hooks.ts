@@ -1,7 +1,11 @@
 import type { Locals, OIDCResponse, UserDetailsGeneratorFn } from "../types";
 import { parseCookie } from "./cookie";
 import { isTokenExpired } from "./jwt";
-import { initiateBackChannelOIDCAuth, introspectOIDCToken, renewOIDCToken } from "./auth-api";
+import {
+  initiateBackChannelOIDCAuth,
+  introspectOIDCToken,
+  renewOIDCToken,
+} from "./auth-api";
 import {
   injectCookies,
   isAuthInfoInvalid,
@@ -13,7 +17,7 @@ import {
 import debug from "debug";
 import type { RequestEvent } from "@sveltejs/kit/types/internal";
 
-const log = debug('sveltekit-oidc:_keycloak/hooks')
+const log = debug("sveltekit-oidc:_keycloak/hooks");
 
 export const getUserSession = async (
   event: RequestEvent,
@@ -130,7 +134,8 @@ export const getUserSession = async (
               };
             } else {
               (event.locals as Locals).access_token = newTokenData.access_token;
-              (event.locals as Locals).retries = (event.locals as Locals).retries + 1;
+              (event.locals as Locals).retries =
+                (event.locals as Locals).retries + 1;
               return await getUserSession(
                 event,
                 issuer,
@@ -179,7 +184,8 @@ export const getUserSession = async (
             };
           } else {
             (event.locals as Locals).access_token = newTokenData.access_token;
-            (event.locals as Locals).retries = (event.locals as Locals).retries + 1;
+            (event.locals as Locals).retries =
+              (event.locals as Locals).retries + 1;
             return await getUserSession(
               event,
               issuer,
@@ -229,14 +235,17 @@ export const getUserSession = async (
       (event.locals as Locals).authError.error = err.error;
     }
     if (err?.error_description) {
-      (event.locals as Locals).authError.error_description = err.error_description;
+      (event.locals as Locals).authError.error_description =
+        err.error_description;
     }
     return {
       user: null,
       access_token: null,
       refresh_token: null,
       userid: null,
-      error: (event.locals as Locals).authError?.error ? (event.locals as Locals).authError : null,
+      error: (event.locals as Locals).authError?.error
+        ? (event.locals as Locals).authError
+        : null,
       auth_server_online: err.error !== "auth_server_conn_error" ? true : false,
     };
   }
@@ -308,10 +317,9 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
   // Backchannel Authorization code flow
   if (
     event.url.searchParams.get("code") &&
-    (!isAuthInfoInvalid((event.locals as Locals)) ||
+    (!isAuthInfoInvalid(event.locals as Locals) ||
       isTokenExpired((event.locals as Locals).access_token))
   ) {
-    
     const jwts: OIDCResponse = await initiateBackChannelOIDCAuth(
       event.url.searchParams.get("code"),
       clientId,

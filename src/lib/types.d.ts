@@ -39,7 +39,13 @@ export interface OIDCFailureResponse extends AuthError {}
 export type OIDCResponse = OIDCSuccessResponse & OIDCFailureResponse;
 
 export interface UserDetailsGeneratorFn {
-  (event: RequestEvent<Locals>, issuer: string, clientId: string, clientSecret: string, appRedirectUrl: string): AsyncGenerator<any, any, RequestEvent<Locals>>;
+  (
+    event: RequestEvent<Locals>,
+    issuer: string,
+    clientId: string,
+    clientSecret: string,
+    appRedirectUrl: string
+  ): AsyncGenerator<any, any, RequestEvent<Locals>>;
 }
 export interface UserSession {
   user: any;

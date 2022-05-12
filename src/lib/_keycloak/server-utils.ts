@@ -1,15 +1,15 @@
 import jwtDecode from "jwt-decode";
 import type { Locals } from "$lib/types";
 import type { RequestEvent } from "@sveltejs/kit/types/internal";
-import debug from 'debug'
+import debug from "debug";
 
-const log = debug('sveltekit-oidc:server-utils')
+const log = debug("sveltekit-oidc:server-utils");
 
 export const injectCookies = (event: RequestEvent, response) => {
   let responseCookies = {};
   let serialized_user = null;
 
-  let locals: Locals = (event.locals as Locals) 
+  let locals: Locals = event.locals as Locals;
 
   try {
     serialized_user = JSON.stringify(locals.user);
@@ -38,10 +38,9 @@ export const isAuthInfoInvalid = (obj) => {
 };
 
 export const parseUser = (event: RequestEvent, userInfo) => {
-  
   const { request } = event;
-  let locals: Locals = event.locals as Locals
-  
+  let locals: Locals = event.locals as Locals;
+
   let userJsonParseFailed = false;
   try {
     if (request.headers?.get("user")) {
@@ -96,10 +95,7 @@ export const populateRequestLocals = (
   return request;
 };
 
-export const populateResponseHeaders = (
-  event: RequestEvent,
-  response
-) => {
+export const populateResponseHeaders = (event: RequestEvent, response) => {
   let locals: Locals = event.locals as Locals;
   if (locals.user) {
     response.headers["user"] = `${JSON.stringify(locals.user)}`;
@@ -117,7 +113,6 @@ export const populateResponseHeaders = (
   }
   return response;
 };
-
 
 export const setRequestLocalsFromNewTokens = (
   event: RequestEvent,

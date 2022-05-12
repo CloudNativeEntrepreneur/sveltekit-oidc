@@ -23,7 +23,7 @@ export const config = {
     refreshPageOnSessionTimeout: VITE_REFRESH_PAGE_ON_SESSION_TIMEOUT,
     refreshTokenEndpoint: VITE_REFRESH_TOKEN_ENDPOINT,
     refreshTokenMaxRetries: VITE_OIDC_TOKEN_REFRESH_MAX_RETRIES,
-    scope: VITE_OIDC_CLIENT_SCOPE
+    scope: VITE_OIDC_CLIENT_SCOPE,
   },
   graphql: {
     http: VITE_GRAPHQL_URL,
