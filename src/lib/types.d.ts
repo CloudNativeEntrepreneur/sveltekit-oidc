@@ -1,9 +1,9 @@
 import type { MaybePromise } from "@sveltejs/kit/types/helper";
-import type { ServerRequest, ServerResponse } from "@sveltejs/kit/types/hooks";
+import type { RequestEvent } from "@sveltejs/kit/types/hooks";
 
 export type AuthError = {
   error: string;
-  error_description: string;
+  errorDescription: string;
 };
 export interface Locals {
   userid: string;
@@ -39,11 +39,7 @@ export interface OIDCFailureResponse extends AuthError {}
 export type OIDCResponse = OIDCSuccessResponse & OIDCFailureResponse;
 
 export interface UserDetailsGeneratorFn {
-  (request: ServerRequest<Locals>, clientSecret: string): AsyncGenerator<
-    ServerResponse,
-    ServerResponse,
-    ServerRequest<Locals>
-  >;
+  (event: RequestEvent<Locals>): AsyncGenerator<any, any, RequestEvent<Locals>>;
 }
 export interface UserSession {
   user: any;

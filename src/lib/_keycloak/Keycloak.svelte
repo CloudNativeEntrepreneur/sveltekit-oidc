@@ -1,5 +1,5 @@
 <script context="module" lang="ts">
-  import { initiateFrontChannelOIDCAuth } from "./utils";
+  import { initiateFrontChannelOIDCAuth } from "./auth-api";
   import type { Load } from "@sveltejs/kit";
   import type { OidcContextClientFn, OidcContextClientPromise } from "../types";
 
@@ -285,6 +285,7 @@
   };
 
   async function handleMount() {
+    console.log("Keycloak:handleMount");
     try {
       window.addEventListener("storage", syncLogout);
       window.addEventListener("storage", syncLogin);
@@ -292,6 +293,7 @@
 
     try {
       if ($session?.auth_server_online === false) {
+        console.log("Keycloak:handleMount - testing server");
         const testAuthServerResponse = await fetch(issuer, {
           headers: {
             "Content-Type": "application/json",

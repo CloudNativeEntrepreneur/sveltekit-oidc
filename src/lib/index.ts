@@ -17,20 +17,14 @@ export {
 } from "./_keycloak/Keycloak.svelte";
 export { default as LoginButton } from "./_keycloak/LoginButton.svelte";
 export { default as LogoutButton } from "./_keycloak/LogoutButton.svelte";
-export { default as KeycloakProtectedRoute } from "./_keycloak/KeycloakProtectedRoute.svelte";
+export { default as ProtectedRoute } from "./_keycloak/ProtectedRoute.svelte";
 export {
-  oidcBaseUrl,
-  clientId,
-  isTokenExpired,
-  initiateFrontChannelOIDCAuth,
   initiateBackChannelOIDCAuth,
   initiateBackChannelOIDCLogout,
-  renewOIDCToken,
+  initiateFrontChannelOIDCAuth,
   introspectOIDCToken,
-  populateRequestLocals,
-  populateResponseHeaders,
-  injectCookies,
-  parseUser,
-  userDetailsGenerator,
-  getUserSession,
-} from "./_keycloak/utils";
+  renewOIDCToken,
+} from "./_keycloak/auth-api";
+export { userDetailsGenerator, getUserSession } from "./_keycloak/hooks";
+export { parseCookie } from "./_keycloak/cookie";
+export { getServerOnlyEnvVar } from "./getServerOnlyEnvVar";

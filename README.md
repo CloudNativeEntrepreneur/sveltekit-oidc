@@ -209,10 +209,10 @@ export const getSession: GetSession = async (
 
 ```html
 <script lang="ts">
-  import { KeycloakProtectedRoute, LogoutButton } from "sveltekit-oidc";
+  import { ProtectedRoute, LogoutButton } from "sveltekit-oidc";
 </script>
 
-<KeycloakProtectedRoute>
+<ProtectedRoute>
   <div
     class="h-screen-minus-navbar bg-gray-800 text-white flex flex-col justify-center items-center w-full"
   >
@@ -220,7 +220,7 @@ export const getSession: GetSession = async (
 
     <LogoutButton class="btn btn-primary">Logout</LogoutButton>
   </div>
-</KeycloakProtectedRoute>
+</ProtectedRoute>
 ```
 
 # Application Screenshots
