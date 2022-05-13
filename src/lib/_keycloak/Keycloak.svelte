@@ -1,12 +1,17 @@
 <script context="module" lang="ts">
-  import { initiateFrontChannelOIDCAuth } from "./auth-api";
+  import { setContext } from "svelte";
+  import { onMount, onDestroy } from "svelte";
+  import { get, writable } from "svelte/store";
+  import { browser } from "$app/env";
+  import { page, session } from "$app/stores";
   import type {
     OidcContextClientFn,
     OidcContextClientPromise,
     UserSession,
   } from "../types";
+  import { initiateFrontChannelOIDCAuth } from "./auth-api";
+  import { getTokenData } from "./jwt";
   import debug from "debug";
-  import { get, writable } from "svelte/store";
 
   const log = debug("sveltekit-oidc:lib/_keycloak/Keycloak.svelte");
 
@@ -37,49 +42,44 @@
     authError,
   };
 
-  // const onReceivedNewTokens = (tokens: {
-  //   accessToken: string;
-  //   idToken: string;
-  //   refreshToken: string;
-  // }) => {
-  //   const user = getTokenData(tokens.idToken);
-  //   delete user.aud;
-  //   delete user.exp;
-  //   delete user.iat;
-  //   delete user.iss;
-  //   delete user.sub;
-  //   delete user.typ;
-  //   if (user?.username) {
-  //     user.username = decodeURI(user.username);
-  //   }
+  const onReceivedNewTokens = (tokens: {
+    access_token: string;
+    id_token: string;
+    refresh_token: string;
+  }) => {
+    const user = getTokenData(tokens.id_token);
+    delete user.aud;
+    delete user.exp;
+    delete user.iat;
+    delete user.iss;
+    delete user.sub;
+    delete user.typ;
+    if (user?.preferred_username) {
+      user.username = decodeURI(user.preferred_username);
+    }
 
-  //   AuthStore.isAuthenticated.set(true);
-  //   AuthStore.accessToken.set(tokens.accessToken);
-  //   AuthStore.refreshToken.set(tokens.refreshToken);
-  //   AuthStore.idToken.set(tokens.idToken);
-  //   AuthStore.userInfo.set({
-  //     ...user,
-  //   });
+    AuthStore.isAuthenticated.set(true);
+    AuthStore.accessToken.set(tokens.access_token);
+    AuthStore.refreshToken.set(tokens.refresh_token);
+    AuthStore.idToken.set(tokens.id_token);
+    AuthStore.userInfo.set({
+      ...user,
+    });
 
-  //   session.set({
-  //     userid: user.userid,
-  //     accessToken: tokens.accessToken,
-  //     refreshToken: tokens.refreshToken,
-  //     user,
-  //     authServerOnline: true,
-  //   });
+    const newSession: UserSession = {
+      userid: user.userid,
+      access_token: tokens.access_token,
+      refresh_token: tokens.refresh_token,
+      id_token: tokens.id_token,
+      user,
+      auth_server_online: true,
+    }
 
-  //   log("session updated");
+    session.set(newSession);
 
-  //   return user;
-  // };
+    log("session updated");
 
-  const clearAuthStoreInfo = () => {
-    AuthStore.isAuthenticated.set(false);
-    AuthStore.accessToken.set(null);
-    AuthStore.refreshToken.set(null);
-    AuthStore.idToken.set(null);
-    AuthStore.userInfo.set(null);
+    return user;
   };
 
   // const handleLoggedIn = (tokens: any) => {
@@ -125,13 +125,21 @@
     });
   };
 
-  const setAuthStoreInfoFromSession = (currentSession) => {
+  const setAuthStoreInfoFromSession = (currentSession: UserSession) => {
     log("SESSION", currentSession);
     AuthStore.isAuthenticated.set(true);
-    AuthStore.accessToken.set(currentSession.accessToken);
-    AuthStore.refreshToken.set(currentSession.refreshToken);
-    AuthStore.idToken.set(currentSession.idToken);
+    AuthStore.accessToken.set(currentSession.access_token);
+    AuthStore.refreshToken.set(currentSession.refresh_token);
+    AuthStore.idToken.set(currentSession.id_token);
     AuthStore.authError.set(null);
+  };
+
+  const clearAuthStoreInfo = () => {
+    AuthStore.isAuthenticated.set(false);
+    AuthStore.accessToken.set(null);
+    AuthStore.refreshToken.set(null);
+    AuthStore.idToken.set(null);
+    AuthStore.userInfo.set(null);
   };
 
   export async function login(oidcPromise: OidcContextClientPromise) {
@@ -210,16 +218,54 @@
       window.location.assign(logout_uri);
     }
   }
+
+  export const tokenRefresh = async (
+    oidcAuthPromise: OidcContextClientPromise,
+    refreshTokenToExchange,
+    refreshTokenEndpoint,
+    requester?: string
+  ) => {
+    log(`attempting token refresh for "${requester}"`);
+    const oidcAuthClientFn = await oidcAuthPromise;
+    const { client_id } = oidcAuthClientFn();
+    try {
+
+      const res = await fetch(refreshTokenEndpoint, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          refresh_token: refreshTokenToExchange,
+          client_id,
+        }),
+      });
+
+      if (res.ok) {
+        const resData = await res.json();
+
+        if (resData.error) {
+          throw {
+            error: "token_refresh_error",
+            errorDescription: `Unable to Refresh token: ${resData.error}`,
+          };
+        }
+
+        onReceivedNewTokens(resData);
+        return resData;
+      }
+    } catch (e) {
+      console.error("Error while doing tokenRefresh", e);
+      clearAuthStoreInfo();
+      AuthStore.authError.set({
+        error: e?.error,
+        errorDescription: e?.errorDescription,
+      });
+    }
+  };
 </script>
 
 <script lang="ts">
-  import { setContext } from "svelte";
-  import { onMount, onDestroy } from "svelte";
-  import { browser } from "$app/env";
-
-  import { page, session } from "$app/stores";
-  import { getTokenData } from "./jwt";
-
   // props.
   export let issuer: string;
   export let client_id: string;
@@ -228,6 +274,7 @@
   export let scope: string;
   export let refresh_token_endpoint: string;
   export let refresh_page_on_session_timeout: boolean = false;
+  let currentSilentRefreshTimeout = null;
 
   const oidcBaseUrl = `${issuer}/protocol/openid-connect`;
 
@@ -259,16 +306,63 @@
 
   let tokenTimeoutObj = null;
 
-  export async function silentRefresh(oldRefreshToken: string) {
+  const scheduleNextSilentRefresh = (accessToken, refreshToken) => {
+    const jwtData = JSON.parse(atob(accessToken.split(".")[1]).toString());
+    const tokenSkew = 10; // 10 seconds before actual token expiry
+    const skewedTimeoutDuration =
+      jwtData.exp * 1000 - tokenSkew * 1000 - new Date().getTime();
+    const timeoutDuration =
+      skewedTimeoutDuration > 0
+        ? skewedTimeoutDuration
+        : skewedTimeoutDuration + tokenSkew * 1000;
+
+    if (currentSilentRefreshTimeout) {
+      clearTimeout(currentSilentRefreshTimeout);
+    }
+
+    if (timeoutDuration > 0) {
+      currentSilentRefreshTimeout = setTimeout(async () => {
+        await silentRefresh(refreshToken);
+      }, timeoutDuration);
+      log(
+        `scheduled another silent refresh in ${
+          timeoutDuration / 1000
+        } seconds.`,
+        currentSilentRefreshTimeout
+      );
+    } else {
+      console.error(
+        "The session is not active - not scheduling silent refresh"
+      );
+      throw {
+        error: "invalid_grant",
+        errorDescription: "Session is not active",
+      };
+    }
+  };
+
+  async function silentRefresh(refreshTokenToExchange: string) {
     try {
-      const reqBody = `refresh_token=${oldRefreshToken}`;
-      const res = await fetch(refresh_token_endpoint, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: reqBody,
-      });
+
+      const { accessToken, refreshToken } = await tokenRefresh(
+        oidc_auth_promise,
+        refreshTokenToExchange,
+        refresh_token_endpoint,
+        "silent refresh"
+      );
+
+      scheduleNextSilentRefresh(accessToken, refreshToken);
+    } catch (e) {
+      console.error("Silent Refresh Error:", e);
+      if (currentSilentRefreshTimeout) {
+        clearTimeout(currentSilentRefreshTimeout);
+      }
+    }
+  }
+
+  export async function _silentRefresh(oldRefreshToken: string) {
+    try {
+      
       if (res.ok) {
         const resData = await res.json();
         if (!resData.error) {
@@ -327,25 +421,24 @@
       }
     }
   }
+
   const syncLogout = (event: StorageEvent) => {
     if (browser) {
       if (event.key === "user_logout") {
         try {
           if (JSON.parse(window.localStorage.getItem("user_logout"))) {
-            window.localStorage.setItem("user_login", null);
+            window.localStorage.removeItem("user_login");
 
-            AuthStore.accessToken.set(null);
-            AuthStore.refreshToken.set(null);
-            AuthStore.isAuthenticated.set(false);
-            AuthStore.authError.set({
-              error: "invalid_grant",
-              error_description: "Session is not active",
-            });
+            AuthStore.isLoading.set(false);
+            clearAuthStoreInfo();
             if (refresh_page_on_session_timeout) {
+              log("refreshing for session timeout");
               window.location.assign($page.url.pathname);
             }
           }
-        } catch (e) {}
+        } catch (err) {
+          console.error("Sync logout error", err);
+        }
       }
     }
   };
@@ -354,7 +447,7 @@
     if (browser) {
       if (event.key === "user_login") {
         try {
-          window.localStorage.setItem("user_logout", "false");
+          window.localStorage.removeItem("user_logout");
           const userInfo = JSON.parse(
             window.localStorage.getItem("user_login")
           );
@@ -371,100 +464,76 @@
               window.location.assign($page.url.pathname);
             }
           }
-        } catch (e) {}
+        } catch (err) {
+          console.error("Sync login error", err);
+        }
       }
     }
   };
 
   async function handleMount() {
-    log("Keycloak:handleMount");
-    try {
-      window.addEventListener("storage", syncLogout);
-      window.addEventListener("storage", syncLogin);
-    } catch (e) {}
+    if (browser) {
+      try {
+        window.addEventListener("storage", syncLogout);
+        window.addEventListener("storage", syncLogin);
+      } catch (err) {
+        console.error("Error adding storage event handlers", err);
+      }
+    }
 
     try {
       if (($session as UserSession)?.auth_server_online === false) {
-        log("Keycloak:handleMount - testing server");
-        const testAuthServerResponse = await fetch(issuer, {
-          headers: {
-            "Content-Type": "application/json",
-          },
-        });
-        if (!testAuthServerResponse.ok) {
-          throw {
-            error: await testAuthServerResponse.json(),
-          };
-        }
-      } else {
-        AuthStore.isLoading.set(false);
-        if (!($session as UserSession).user) {
-          AuthStore.isAuthenticated.set(false);
-          AuthStore.accessToken.set(null);
-          AuthStore.refreshToken.set(null);
-          AuthStore.idToken.set(null);
-          if (window.location.toString().includes("event=logout")) {
-            window.location.assign($page.url.pathname);
-          }
-        } else {
-          AuthStore.isAuthenticated.set(true);
-          AuthStore.accessToken.set(($session as UserSession).access_token);
-          AuthStore.refreshToken.set(($session as UserSession).refresh_token);
-          AuthStore.idToken.set(($session as UserSession).id_token);
-          const jwtData = JSON.parse(
-            atob(
-              ($session as UserSession).access_token.split(".")[1]
-            ).toString()
-          );
-          const tokenSkew = 10; // 10 seconds before actual token expiry
-          const skewedTimeoutDuration =
-            jwtData.exp * 1000 - tokenSkew * 1000 - new Date().getTime();
-          const timeoutDuration =
-            skewedTimeoutDuration > 0
-              ? skewedTimeoutDuration
-              : skewedTimeoutDuration + tokenSkew * 1000;
-          tokenTimeoutObj = setTimeout(async () => {
-            await silentRefresh(($session as UserSession).refresh_token);
-          }, timeoutDuration);
-          AuthStore.authError.set(null);
-          if (window.location.toString().includes("code=")) {
-            window.location.assign($page.url.pathname);
-          }
-
-          try {
-            window.localStorage.setItem(
-              "user_login",
-              JSON.stringify(($session as UserSession).user)
-            );
-          } catch (e) {}
-        }
+        await checkAuthServerIsOnline(issuer);
       }
-    } catch (e) {
-      console.error(e);
-      AuthStore.isLoading.set(false);
-      AuthStore.isAuthenticated.set(false);
-      AuthStore.accessToken.set(null);
-      AuthStore.refreshToken.set(null);
-      AuthStore.authError.set({
-        error: "auth_server_conn_error",
-        error_description: "Auth Server Connection Error",
-      });
-      if (window.location.toString().includes("event=logout")) {
-        window.location.assign($page.url.pathname);
+    } catch (error) {
+      return handleAuthServerOffline(error);
+    }
+
+    AuthStore.isLoading.set(false);
+    if (!($session as UserSession).user) {
+      log("mounted without user in session", { session: $session as UserSession });
+      clearAuthStoreInfo();
+    } else {
+      log("mounted with user in session", { session: $session });
+      setAuthStoreInfoFromSession($session as UserSession);
+
+      const accessToken = ($session as UserSession).access_token;
+      const refreshToken = ($session as UserSession).refresh_token;
+      scheduleNextSilentRefresh(accessToken, refreshToken);
+      AuthStore.authError.set(null);
+
+      try {
+        window.localStorage.setItem(
+          "user_login",
+          JSON.stringify(($session as UserSession).user)
+        );
+      } catch (e) {
+        console.error("Error setting local storage 'user_login'");
       }
     }
   }
   onMount(handleMount);
 
-  onDestroy(() => {
-    if (tokenTimeoutObj) {
-      clearTimeout(tokenTimeoutObj);
-    }
-    try {
-      window.removeEventListener("storage", syncLogout);
-      window.removeEventListener("storage", syncLogin);
-    } catch (e) {}
-  });
+  if (browser) {
+    onDestroy(() => {
+      if (currentSilentRefreshTimeout) {
+        try {
+          clearTimeout(currentSilentRefreshTimeout);
+        } catch (err) {
+          console.error("Error clearing timeout", err);
+        }
+      }
+
+      if (typeof window !== "undefined") {
+        try {
+          window.removeEventListener("storage", syncLogout);
+          window.removeEventListener("storage", syncLogin);
+        } catch (err) {
+          console.error("Error removing storage event listeners", err);
+        }
+      }
+    });
+  }
 </script>
 
 <slot />

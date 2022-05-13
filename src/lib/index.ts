@@ -17,6 +17,7 @@ export {
 } from "./_keycloak/Keycloak.svelte";
 export { default as LoginButton } from "./_keycloak/LoginButton.svelte";
 export { default as LogoutButton } from "./_keycloak/LogoutButton.svelte";
+export { default as RefreshTokenButton } from "./_keycloak/RefreshTokenButton.svelte";
 export { default as ProtectedRoute } from "./_keycloak/ProtectedRoute.svelte";
 export {
   initiateBackChannelOIDCAuth,

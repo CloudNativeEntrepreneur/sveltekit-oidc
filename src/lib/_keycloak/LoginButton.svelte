@@ -6,10 +6,10 @@
   const oidcPromise: OidcContextClientPromise = getContext(
     OIDC_CONTEXT_CLIENT_PROMISE
   );
-  let clazz: string = "btn btn-primary";
-  export { clazz as class };
+  let _class: string = "btn btn-primary";
+  export { _class as class };
 </script>
 
-<button class={clazz} on:click|preventDefault={() => login(oidcPromise)}>
+<button class={_class} on:click|preventDefault={() => login(oidcPromise)}>
   <slot />
 </button>
