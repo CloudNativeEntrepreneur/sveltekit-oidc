@@ -8,13 +8,13 @@
     class="h-screen-minus-navbar bg-gray-800 text-white flex flex-col justify-center items-center w-full"
   >
     <h1>Your Profile</h1>
-    <p><strong>Address:</strong> {$session.user?.address}</p>
-    <p><strong>Username:</strong> {$session.user?.username}</p>
-    {#if $session.user.roles}
+    <p><strong>Email:</strong> {$session.user?.email}</p>
+    <p><strong>Username:</strong> {$session.user?.preferred_username}</p>
+    {#if $session.user["https://hasura.io/jwt/claims"]["x-hasura-allowed-roles"]}
       <div>
         <strong>Your roles:</strong>
         <ul>
-          {#each $session?.user?.roles as role}
+          {#each $session.user["https://hasura.io/jwt/claims"]["x-hasura-allowed-roles"] as role}
             <li>{role}</li>
           {/each}
         </ul>
