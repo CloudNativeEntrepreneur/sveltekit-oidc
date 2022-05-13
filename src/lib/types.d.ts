@@ -1,52 +1,62 @@
-import type { MaybePromise } from "@sveltejs/kit/types/helper";
-import type { ServerRequest, ServerResponse } from '@sveltejs/kit/types/hooks';
+import type { Page } from "@sveltejs/kit";
+import type { RequestEvent } from "@sveltejs/kit/types/internal";
 
 export type AuthError = {
-    error: string;
-    error_description: string;
-}
+  error: string;
+  error_description: string;
+};
 export interface Locals {
-	userid: string;
-	access_token: string;
-	refresh_token: string;
-    authError?: AuthError;
-	user?: any;
-    retries?: number;
-	cookieAttributes?: string;
+  userid: string;
+  access_token: string;
+  refresh_token: string;
+  id_token: string;
+  authError?: AuthError;
+  user?: any;
+  retries?: number;
+  cookieAttributes?: string;
 }
 
-export type OidcContextClientFn = (request_path?: string, request_params?: Record<string, string>) => {
-    redirect: string;
-    session: any;
-    issuer: string;
-    page: Page;
-    client_id: string;
-}
+export type OidcContextClientFn = (
+  request_path?: string,
+  request_params?: Record<string, string>
+) => {
+  redirect: string;
+  session: any;
+  issuer: string;
+  page: Page;
+  client_id: string;
+};
 
-export type OidcContextClientPromise = Promise<OidcContextClientFn>
+export type OidcContextClientPromise = Promise<OidcContextClientFn>;
 
 export interface OIDCSuccessResponse {
-	access_token: string;
-	id_token: string;
-	refresh_token: string;
+  access_token: string;
+  id_token: string;
+  refresh_token: string;
 }
 
-export interface OIDCFailureResponse extends AuthError {
-}
+export interface OIDCFailureResponse extends AuthError {}
 
 export type OIDCResponse = OIDCSuccessResponse & OIDCFailureResponse;
 
 export interface UserDetailsGeneratorFn {
-	(request: ServerRequest<Locals>, clientSecret: string): AsyncGenerator<ServerResponse, ServerResponse, ServerRequest<Locals>>
+  (
+    event: RequestEvent,
+    issuer: string,
+    clientId: string,
+    clientSecret: string,
+    appRedirectUrl: string
+  ): AsyncGenerator<any, any, RequestEvent>;
 }
-export interface UserSession { 
-	user: any;
-	access_token: string;
-	refresh_token: string;
-	userid: string;
-    error?: AuthError | undefined;
-	auth_server_online: boolean;
+export interface UserSession {
+  user: any;
+  access_token: string;
+  refresh_token: string;
+  id_token: string;
+  userid: string;
+  error?: AuthError | undefined;
+  auth_server_online: boolean;
 }
 export interface GetUserSessionFn {
-    (request: ServerRequest<Locals>, clientSecret: string): Promise<UserSession>
+  (event: RequestEvent, clientSecret: string): Promise<UserSession>;
 }
