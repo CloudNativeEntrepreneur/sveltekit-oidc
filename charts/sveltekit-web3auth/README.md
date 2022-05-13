@@ -1,1 +1,1 @@
-# sveltekit-web3auth
+# sveltekit-oidc

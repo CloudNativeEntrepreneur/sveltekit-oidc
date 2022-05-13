@@ -10,7 +10,7 @@ image:
 env:
 
 service:
-  name: sveltekit-web3auth
+  name: sveltekit-oidc
   internalPort: 3000
 
 knative: {}

@@ -6,12 +6,12 @@ import {
   cacheExchange,
   fetchExchange,
 } from "@urql/svelte";
-import { accessToken } from "../web3auth/Web3Auth.svelte";
+import { accessToken } from "../_keycloak/Keycloak.svelte";
 import { browser } from "$app/env";
 import debug from "debug";
 import { createClient as createGQLClient } from "graphql-ws";
 
-const log = debug("sveltekit-web3auth:lib/graphQL/urql");
+const log = debug("sveltekit-oidc:lib/graphQL/urql");
 
 const graphQLClients = [];
 
