@@ -19,7 +19,12 @@
 <button
   class={_class}
   on:click|preventDefault={() =>
-    tokenRefresh(oidcAuthPromise, $refreshToken, config.oidc.refreshTokenEndpoint, "refresh button")}
+    tokenRefresh(
+      oidcAuthPromise,
+      $refreshToken,
+      config.oidc.refreshTokenEndpoint,
+      "refresh button"
+    )}
 >
   <slot />
 </button>

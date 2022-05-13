@@ -4,13 +4,11 @@ import type { RequestHandler } from "@sveltejs/kit";
 import type { RequestEvent } from "@sveltejs/kit/types/private";
 
 import { config } from "../../config";
-import debug from 'debug'
+import debug from "debug";
 
-const log = debug("sveltekit-oidc:/auth/refresh_token")
+const log = debug("sveltekit-oidc:/auth/refresh_token");
 
-const oidcBaseUrl = `${
-  config.oidc.issuer
-}/protocol/openid-connect`;
+const oidcBaseUrl = `${config.oidc.issuer}/protocol/openid-connect`;
 
 const clientSecret =
   getServerOnlyEnvVar(process, "OIDC_CLIENT_SECRET") ||
@@ -23,8 +21,8 @@ export const post: RequestHandler = async (event: RequestEvent) => {
   const body: any = await request.json();
   const clientId = body.client_id;
   const refreshToken = body.refresh_token;
-  
-  log('refreshing token', clientId, refreshToken)
+
+  log("refreshing token", clientId, refreshToken);
   const data = await renewOIDCToken(
     refreshToken,
     oidcBaseUrl,

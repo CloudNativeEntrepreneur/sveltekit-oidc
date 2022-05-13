@@ -73,7 +73,7 @@
       id_token: tokens.id_token,
       user,
       auth_server_online: true,
-    }
+    };
 
     session.set(newSession);
 
@@ -229,7 +229,6 @@
     const oidcAuthClientFn = await oidcAuthPromise;
     const { client_id } = oidcAuthClientFn();
     try {
-
       const res = await fetch(refreshTokenEndpoint, {
         method: "POST",
         headers: {
@@ -343,7 +342,6 @@
 
   async function silentRefresh(refreshTokenToExchange: string) {
     try {
-
       const { accessToken, refreshToken } = await tokenRefresh(
         oidc_auth_promise,
         refreshTokenToExchange,
@@ -362,7 +360,6 @@
 
   export async function _silentRefresh(oldRefreshToken: string) {
     try {
-      
       if (res.ok) {
         const resData = await res.json();
         if (!resData.error) {
@@ -491,7 +488,9 @@
 
     AuthStore.isLoading.set(false);
     if (!($session as UserSession).user) {
-      log("mounted without user in session", { session: $session as UserSession });
+      log("mounted without user in session", {
+        session: $session as UserSession,
+      });
       clearAuthStoreInfo();
     } else {
       log("mounted with user in session", { session: $session });

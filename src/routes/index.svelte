@@ -9,7 +9,7 @@
     LoginButton,
     LogoutButton,
   } from "$lib";
-import RefreshTokenButton from "$lib/_keycloak/RefreshTokenButton.svelte";
+  import RefreshTokenButton from "$lib/_keycloak/RefreshTokenButton.svelte";
 
   import debug from "debug";
 
@@ -91,7 +91,9 @@ import RefreshTokenButton from "$lib/_keycloak/RefreshTokenButton.svelte";
       </div>
       <LogoutButton class="btn btn-primary">Logout</LogoutButton>
       <LoginButton class="btn btn-primary">Login</LoginButton>
-      <RefreshTokenButton class="btn btn-primary">Refresh Token</RefreshTokenButton>
+      <RefreshTokenButton class="btn btn-primary"
+        >Refresh Token</RefreshTokenButton
+      >
     </section>
   {:else if $authError}
     <section class="p-5 rounded-lg bg-red-400">

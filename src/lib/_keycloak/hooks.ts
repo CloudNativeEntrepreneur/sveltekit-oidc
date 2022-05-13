@@ -304,22 +304,26 @@ export const userDetailsGenerator: UserDetailsGeneratorFn = async function* (
     );
     locals.access_token = null;
     locals.refresh_token = null;
+    locals.id_token = null;
     locals.authError = {
       error: "invalid_session",
       error_description: "Session is no longer active",
     };
     locals.user = null;
-    ssr_redirect_uri = request.url;
-    let response = {
-      status: 302,
+    ssr_redirect_uri = event.url.hostname;
+
+    let response = new Response(null, {
       headers: {
-        Location: ssr_redirect_uri,
+        Location: "/",
       },
-    };
+      status: 302,
+    });
+
     try {
       response = populateResponseHeaders(event, response);
       response = injectCookies(event, response);
     } catch (e) {}
+    log("returning logout response", response, request.url);
     return response;
   }
 
