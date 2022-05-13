@@ -13,7 +13,7 @@ const oidcBaseUrl = `${
 }/protocol/openid-connect`;
 
 const clientSecret =
-  getServerOnlyEnvVar(process, "WEB3AUTH_CLIENT_SECRET") ||
+  getServerOnlyEnvVar(process, "OIDC_CLIENT_SECRET") ||
   config.oidc.clientSecret;
 /**
  * @type {import('@sveltejs/kit').RequestHandler}
